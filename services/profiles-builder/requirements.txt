@@ -1,0 +1,5 @@
+aiokafka
+asyncpg
+redis
+pydantic
+python-dotenv
