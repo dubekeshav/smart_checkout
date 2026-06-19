@@ -72,6 +72,22 @@ services:
         condition: service_healthy
     networks:
       - checkout-net
+   
+  profile-builder:
+    build: ./services/profile-builder
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://checkout_user:checkout_pass@postgres:5432/checkout_db
+    networks:
+      - checkout-net
 
 networks:
   checkout-net:

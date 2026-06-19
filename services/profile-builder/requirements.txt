@@ -3,3 +3,4 @@ asyncpg
 redis
 pydantic
 python-dotenv
+kafka-python

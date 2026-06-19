@@ -58,7 +58,7 @@ async def ingest_event(event: EventPayload):
         "user_id": event.user_id,
         "event_type": event.event_type,
         "payload": event.payload,
-        "timestamp": event.timestamp.isoformat()
+        "created_at": event.timestamp.isoformat()
     }
     
     # Publishing to the user-events topic
