@@ -88,6 +88,22 @@ services:
       - DATABASE_URL=postgresql://checkout_user:checkout_pass@postgres:5432/checkout_db
     networks:
       - checkout-net
+  
+  offer-agent:
+    build: ./services/offer-agent
+    ports:
+      - "8002:8002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - DATABASE_URL=postgresql://checkout_user:checkout_pass@postgres:5432/checkout_db
+      - REDIS_URL=redis://redis:6379
+    networks:
+      - checkout-net
 
 networks:
   checkout-net:
