@@ -6,3 +6,4 @@ asyncpg
 redis
 pydantic
 python-dotenv
+psycopg2-binary
