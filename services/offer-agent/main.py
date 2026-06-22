@@ -1,10 +1,15 @@
 import os
 import json
+import re
+import traceback
+import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from tools import init_tools
 from agent import build_agent
+
+logging.basicConfig(level=logging.DEBUG)
 
 # Request and response models
 class DecideRequest(BaseModel):
@@ -54,8 +59,9 @@ async def decide(request: DecideRequest):
         f"Select the best offer for user '{request.user_id}' "
         f"who has a cart worth ${request.cart_value:.2f} "
         f"with items in categories: {request.cart_categories}. "
-        f"Return your answer as JSON with keys: "
-        f"offer_id, offer_name, discount_pct, reasoning."
+        f"Return your answer as valid JSON only, with keys: "
+        f"offer_id, offer_name, discount_pct, reasoning. "
+        f"Do not include any surrounding text or markdown formatting."
     )
     
     try:
@@ -69,29 +75,41 @@ async def decide(request: DecideRequest):
         content = final_message.content
         
         # Parse the JSON response from the agent
+        data = None
         if isinstance(content, str):
             try:
                 data = json.loads(content)
             except json.JSONDecodeError:
-                # If not pure JSON, return raw reasoning as fallback
-                return DecideResponse(
-                    offer_id = "fallback",
-                    offer_name = "Default Offer",
-                    discount_pct = 5.0,
-                    reasoning = content
-                )    
+                # Try to extract a JSON object from the text body
+                start = content.find("{")
+                end = content.rfind("}")
+                if start != -1 and end != -1 and end > start:
+                    candidate = content[start:end+1]
+                    try:
+                        data = json.loads(candidate)
+                    except json.JSONDecodeError:
+                        data = None
+                if data is None:
+                    return DecideResponse(
+                        offer_id = "fallback",
+                        offer_name = "Default Offer",
+                        discount_pct = 5.0,
+                        reasoning = content
+                    )
         else:
             data = {"reasoning": str(content)}
             
         return DecideResponse(
             offer_id = data.get("offer_id", "unknown"),
-            offer_name = data.get("offer_namee", "Unknown Offer"),
+            offer_name = data.get("offer_name", "Unknown Offer"),
             discount_pct = float(data.get("discount_pct", 0)),
             reasoning = data.get("reasoning", "No reasoning provided")
         )
         
     except Exception as e:
-        raise HTTPException(status_code = 500, detail = str(e))
+        error_msg = f"{str(e)}\n{traceback.format_exc()}"
+        logging.error(f"Error in offer agent: {error_msg}")
+        raise HTTPException(status_code=500, detail=str(e))
     
 @app.get("/health")
 async def health():

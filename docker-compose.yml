@@ -104,6 +104,19 @@ services:
       - REDIS_URL=redis://redis:6379
     networks:
       - checkout-net
+  
+  api-gateway:
+    build: ./services/api-gateway
+    ports:
+      - "8000:8000"
+    depends_on:
+      - event-ingestion
+      - offer-agent
+    environment:
+      EVENT_INGESTION_URL: http://event-ingestion:8001
+      OFFER_AGENT_URL: http://offer-agent:8002
+    networks:
+      - checkout-net
 
 networks:
   checkout-net:

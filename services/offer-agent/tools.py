@@ -24,24 +24,36 @@ def get_user_profile(user_id: str) -> str:
     """
     
     # Check redis cache first for low latency access
-    cached = REDIS_CLIENT.get(f"profie: {user_id}")
+    cached = REDIS_CLIENT.get(f"profile:{user_id}")
     if cached:
         return cached.decode("utf-8")
     
     # Fall back to PostgreSQL
     cur = DB_CONN.cursor()
     cur.execute(
-        "SELECT features FROM user_profiles WHERE user_id = %s", (user_id, )
+        "SELECT purchase_frequency, avg_cart_value, category_affinity, recency_score, session_depth FROM user_profiles WHERE user_id = %s", (user_id, )
     )
     
     row = cur.fetchone()
     cur.close()
     
     if row:
-        return row[0] if isinstance(row[0], str) else json.dumps(row[0])
+        profile = {
+            "purchase_frequency": row[0],
+            "avg_cart_value": row[1],
+            "category_affinity": row[2] if isinstance(row[2], dict) else {},
+            "recency_score": row[3],
+            "session_depth": row[4]
+        }
+        return json.dumps(profile)
     
     return json.dumps({
-        "error": "Profile not found"
+        "error": "Profile not found",
+        "purchase_frequency": 1,
+        "avg_cart_value": 0,
+        "category_affinity": {},
+        "recency_score": 0,
+        "session_depth": 1
     })
     
 @tool
@@ -83,12 +95,18 @@ def score_relevance(user_profile_json: str, offer_json: str) -> str:
     """
     Compute a relevance score between a user profile and an offer using the dot product of category affinity with offer category.
     """
-    profile = json.loads(user_profile_json)
-    offer = json.loads(offer_json)
+    try:
+        profile = json.loads(user_profile_json) if user_profile_json else {}
+    except (json.JSONDecodeError, TypeError):
+        profile = {}
+    try:
+        offer = json.loads(offer_json) if offer_json else {}
+    except (json.JSONDecodeError, TypeError):
+        offer = {}
     
     # Extract category affinity from profile
-    category_affinity = profile.get("category_affinity", {})
-    offer_category = offer.get("category", "")
+    category_affinity = profile.get("category_affinity", {}) if isinstance(profile, dict) else {}
+    offer_category = offer.get("category", "") if isinstance(offer, dict) else ""
     
     # Dot product: score is how much the user likes this category
     score = category_affinity.get(offer_category, 0.0)
